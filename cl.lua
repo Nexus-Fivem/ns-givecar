@@ -1,7 +1,6 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+ESX = exports["es_extended"]:getSharedObject()
 local showVehicle = false
 local previewVehicle = nil
-local showVehicle = false
 local menu = false
 
 function ShowVehiclePreview(modelName)
@@ -26,13 +25,6 @@ function ShowVehiclePreview(modelName)
         SetVehicleDoorsLocked(previewVehicle, 4)
         SetEntityHasGravity(previewVehicle, false)
         SetEntityDynamic(previewVehicle, false)
-        SetEntityCollision(previewVehicle, false, false)
-        SetEntityCollision(previewVehicle, false, false)
-        SetEntityAlpha(previewVehicle, 254, false)
-        SetEntityInvincible(previewVehicle, true)
-        SetEntityCanBeDamaged(previewVehicle, false)
-        SetEntityLocallyVisible(previewVehicle)
-        NetworkSetEntityInvisibleToNetwork(previewVehicle, true)
         while showVehicle do
             local screenX, screenY = 0.7, 0.5
             local world, normal = GetWorldCoordFromScreenCoord(screenX, screenY)
@@ -71,6 +63,7 @@ RegisterNetEvent("ns-givecar:openmenu", function(avatar, name)
         steamname = name
     })
 end)
+
 RegisterNUICallback("closemenu", function(data, cb)
     menu = false
     SetNuiFocus(false, false)
@@ -112,25 +105,38 @@ RegisterNetEvent("ns-givecar:getvehicle")
 AddEventHandler("ns-givecar:getvehicle", function(model, renk1, renk2, fullmod, plate)
     local ped = PlayerPedId()
     local coords = GetEntityCoords(ped)
-    QBCore.Functions.SpawnVehicle(model, function(vehicle)
+    
+    ESX.Game.SpawnVehicle(model, coords, 0.0, function(vehicle)
         SetVehicleNumberPlateText(vehicle, plate)
+        
+        -- Primary Color
         local renkler1 = { renk1:match("(%d+) (%d+) (%d+)") }
         local renk1_r = tonumber(renkler1[1])
         local renk1_g = tonumber(renkler1[2])
         local renk1_b = tonumber(renkler1[3])
         SetVehicleCustomPrimaryColour(vehicle, renk1_r, renk1_g, renk1_b)
+        
+        -- Secondary Color (Fixed bug from original)
         local renkler2 = { renk2:match("(%d+) (%d+) (%d+)") }
         local renk2_r = tonumber(renkler2[1])
         local renk2_g = tonumber(renkler2[2])
         local renk2_b = tonumber(renkler2[3])
-        SetVehicleCustomSecondaryColour(vehicle, renk1_r, renk1_g, renk1_b)
+        SetVehicleCustomSecondaryColour(vehicle, renk2_r, renk2_g, renk2_b)
+        
         TaskWarpPedIntoVehicle(ped, vehicle, -1)
-        TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(vehicle))
+        
+        -- Vehicle Keys
+        if Config.VehicleKeys == "esx_vehiclekeys" then
+            TriggerEvent('esx_vehiclekeys:client:SetOwner', plate)
+        elseif Config.VehicleKeys == "wasabi_carlock" then
+            exports.wasabi_carlock:GiveKey(plate)
+        end
+        
         Wait(100)
         if fullmod then
             PerformanceUpgradeVehicle(vehicle, true)
         end
-    end, coords, true)
+    end)
 end)
 
 CreateThread(function()

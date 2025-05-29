@@ -1,4 +1,4 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+ESX = exports["es_extended"]:getSharedObject()
 
 function ExtractIdentifiers(src)
     local identifiers = {}
@@ -11,8 +11,8 @@ function ExtractIdentifiers(src)
     return identifiers
 end
 
-QBCore.Commands.Add('givecar', 'Give any vehicle to a player', {}, true, function(source, args)
-    local source = source
+ESX.RegisterCommand('givecar', 'admin', function(xPlayer, args, showError)
+    local source = xPlayer.source
     local ids = ExtractIdentifiers(source)
     local steamID = ""
     if ids.steam then
@@ -34,46 +34,53 @@ QBCore.Commands.Add('givecar', 'Give any vehicle to a player', {}, true, functio
             print("Steam profile UNKNOWN.")
         end
     end)
-end, 'admin')
+end, false, {help = 'Give any vehicle to a player'})
 
 local function generatePlate()
-    local plate = QBCore.Shared.RandomInt(1) .. QBCore.Shared.RandomStr(2) .. QBCore.Shared.RandomInt(3) .. QBCore.Shared.RandomStr(2)
-    local result = MySQL.scalar.await('SELECT plate FROM player_vehicles WHERE plate = ?', { plate })
+    local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    local plate = ""
+    for i = 1, 8 do
+        local rand = math.random(#charset)
+        plate = plate .. string.sub(charset, rand, rand)
+    end
+    local result = MySQL.scalar.await('SELECT plate FROM owned_vehicles WHERE plate = ?', { plate })
     if result then
         return generatePlate()
     else
-        return plate:upper()
+        return plate
     end
 end
 
 RegisterNetEvent("ns-givecar:givecar", function(data)
     local src = source
+    local xPlayer = ESX.GetPlayerFromId(src)
     local id = tonumber(data.oyuncuID)
     local model = tostring(data.aracKodu)
     local plate = (data.plaka and data.plaka ~= "") and string.upper(data.plaka) or string.upper(generatePlate())
     local fullmod = data.fullmod or false
     local renk1 = data.aracRenk1 or "0 0 0"
     local renk2 = data.aracRenk2 or "0 0 0"
-    local Player = QBCore.Functions.GetPlayer(id)
-    if not Player then
-        TriggerClientEvent('QBCore:Notify', src, 'Player is Offline!', 'error')
+    local targetPlayer = ESX.GetPlayerFromId(id)
+    
+    if not targetPlayer then
+        xPlayer.showNotification('Player is Offline!', 'error')
         return
     end
-    local cid = Player.PlayerData.citizenid
-    local result = MySQL.scalar.await('SELECT plate FROM player_vehicles WHERE plate = ?', {plate})
+    
+    local result = MySQL.scalar.await('SELECT plate FROM owned_vehicles WHERE plate = ?', {plate})
     if result then
-        TriggerClientEvent('QBCore:Notify', src, 'This plate is already exist!', 'error')
+        xPlayer.showNotification('This plate already exists!', 'error')
     else
-        MySQL.insert('INSERT INTO player_vehicles (license, citizenid, vehicle, hash, mods, plate, state) VALUES (?, ?, ?, ?, ?, ?, ?)', {
-            Player.PlayerData.license,
-            cid,
-            model,
-            GetHashKey(model),
-            '{}',
+        MySQL.insert('INSERT INTO owned_vehicles (owner, plate, vehicle, type, job, stored) VALUES (?, ?, ?, ?, ?, ?)', {
+            targetPlayer.identifier,
             plate,
-            0
+            json.encode({ model = GetHashKey(model), plate = plate }),
+            'car',
+            'civ',
+            true
         })
-        TriggerClientEvent('QBCore:Notify', src, 'Vehicle is given!', 'success')
+        
+        xPlayer.showNotification('Vehicle given successfully!', 'success')
         TriggerClientEvent("ns-givecar:getvehicle", id, model, renk1, renk2, fullmod, plate)
     end
 end)
