@@ -13,27 +13,31 @@ end
 
 QBCore.Commands.Add('givecar', 'Give any vehicle to a player', {}, true, function(source, args)
     local source = source
-    local ids = ExtractIdentifiers(source)
-    local steamID = ""
-    if ids.steam then
-        steamID = ids.steam:gsub("steam:", "")
-    else
-        steamID = ""
-    end
-    steamID = tonumber(steamID, 16)
-    local steamAPIKey = Config.steamAPIKey
-    local steamAPIURL = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=" .. steamAPIKey .. "&steamids=" .. steamID
-    PerformHttpRequest(steamAPIURL, function(err, text, headers)
-        local jsonData = json.decode(text)
-        local profile = jsonData.response.players[1]
-        if profile then
-            local avatarURL = profile.avatarfull
-            local steamName = profile.personaname
-            TriggerClientEvent("ns-givecar:openmenu", source, avatarURL, steamName)
+    if Config.UseSteamApi then
+        local ids = ExtractIdentifiers(source)
+        local steamID = ""
+        if ids.steam then
+            steamID = ids.steam:gsub("steam:", "")
         else
-            print("Steam profile UNKNOWN.")
+            steamID = ""
         end
-    end)
+        steamID = tonumber(steamID, 16)
+        local steamAPIKey = Config.steamAPIKey
+        local steamAPIURL = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=" .. steamAPIKey .. "&steamids=" .. steamID
+        PerformHttpRequest(steamAPIURL, function(err, text, headers)
+            local jsonData = json.decode(text)
+            local profile = jsonData.response.players[1]
+            if profile and Config.UseSteamApi then
+                local avatarURL = profile.avatarfull
+                local steamName = profile.personaname
+                TriggerClientEvent("ns-givecar:openmenu", source, true, avatarURL, steamName)
+            else
+                print("NO STEAM API FOUND")
+            end
+        end)
+    else 
+        TriggerClientEvent("ns-givecar:openmenu", source, false)
+    end
 end, 'admin')
 
 local function generatePlate()

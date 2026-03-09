@@ -62,14 +62,20 @@ RegisterNUICallback("updateCarColor", function(data, cb)
     cb("ok")
 end)
 
-RegisterNetEvent("ns-givecar:openmenu", function(avatar, name)
+RegisterNetEvent("ns-givecar:openmenu", function(usesteam, avatar, name)
     menu = true
     SetNuiFocus(true, true)
-    SendNUIMessage({
-        type = "givecar",
-        steampp = avatar,
-        steamname = name
-    })
+    if usesteam then 
+        SendNUIMessage({
+            type = "givecar",
+            steampp = avatar,
+            steamname = name
+        })
+    else
+        SendNUIMessage({
+            type = "givecar"
+        })
+    end
 end)
 RegisterNUICallback("closemenu", function(data, cb)
     menu = false
